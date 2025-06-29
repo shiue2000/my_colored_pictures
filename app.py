@@ -7,6 +7,7 @@ import urllib.request
 
 app = Flask(__name__, static_folder='static')
 
+# --- Directory Setup ---
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 STATIC_FOLDER = os.path.join(BASE_DIR, 'static')
 UPLOAD_FOLDER = os.path.join(STATIC_FOLDER, 'uploads')
@@ -17,17 +18,19 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(MODEL_FOLDER, exist_ok=True)
 
+# --- Model filenames ---
 proto_filename = 'colorization_deploy_v2.prototxt'
 model_filename = 'colorization_release_v2.caffemodel'
 npy_filename = 'pts_in_hull.npy'
 
-proto_url = 'https://raw.githubusercontent.com/richzhang/colorization/master/models/colorization_deploy_v2.prototxt'
-model_url = 'http://eecs.berkeley.edu/~rich.zhang/projects/2016_colorization/files/demo_v2/colorization_release_v2.caffemodel'
-npy_url = 'https://raw.githubusercontent.com/richzhang/colorization/master/resources/pts_in_hull.npy'
-
 protoPath = os.path.join(MODEL_FOLDER, proto_filename)
 modelPath = os.path.join(MODEL_FOLDER, model_filename)
 hullPath = os.path.join(MODEL_FOLDER, npy_filename)
+
+# --- Correct URLs for model files ---
+proto_url = 'https://raw.githubusercontent.com/richzhang/colorization/gh-pages/models/colorization_deploy_v2.prototxt'
+model_url = 'http://eecs.berkeley.edu/~rich.zhang/projects/2016_colorization/files/demo_v2/colorization_release_v2.caffemodel'
+npy_url = 'https://raw.githubusercontent.com/richzhang/colorization/gh-pages/resources/pts_in_hull.npy'
 
 def download_if_missing(url, path):
     if not os.path.exists(path):
@@ -35,23 +38,28 @@ def download_if_missing(url, path):
         urllib.request.urlretrieve(url, path)
         print(f"Downloaded {path}")
 
+# Download models if missing
 download_if_missing(proto_url, protoPath)
 download_if_missing(model_url, modelPath)
 download_if_missing(npy_url, hullPath)
 
+# --- Load model ---
 COLORIZATION_MODEL_AVAILABLE = False
 try:
+    print(f"Loading colorization model...")
     net = cv2.dnn.readNetFromCaffe(protoPath, modelPath)
     pts_in_hull = np.load(hullPath)
     pts = pts_in_hull.transpose().reshape(2, 313, 1, 1).astype(np.float32)
     net.getLayer(net.getLayerId('class8_ab')).blobs = [pts]
     net.getLayer(net.getLayerId('conv8_313_rh')).blobs = [np.full([1, 313], 2.606, dtype=np.float32)]
     COLORIZATION_MODEL_AVAILABLE = True
+    print("Model loaded successfully.")
 except Exception as e:
-    print(f"Failed loading model: {e}")
+    print(f"Failed to load colorization model: {e}")
 
 MAX_DIMENSION = 2048
 
+# --- Utility functions ---
 def resize_img(img):
     h, w = img.shape[:2]
     if max(h, w) > MAX_DIMENSION:
@@ -67,6 +75,7 @@ def inpaint_image_local(input_path, mask_path, output_path):
     img = cv2.imread(input_path)
     mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
     if img is None or mask is None:
+        print("Inpainting: Failed to read input or mask image.")
         return False
     img = resize_img(img)
     mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
@@ -77,9 +86,11 @@ def inpaint_image_local(input_path, mask_path, output_path):
 
 def colorize_image_local(input_path, output_path):
     if not COLORIZATION_MODEL_AVAILABLE:
+        print("Colorization model not available.")
         return False
     img = cv2.imread(input_path)
     if img is None:
+        print("Colorization: Failed to read input image.")
         return False
     img = resize_img(img)
     lab = cv2.cvtColor(img.astype("float32") / 255.0, cv2.COLOR_BGR2LAB)
@@ -94,6 +105,7 @@ def colorize_image_local(input_path, output_path):
     cv2.imwrite(output_path, out_bgr)
     return True
 
+# --- Flask routes ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
     original_url = enhanced_url = None
