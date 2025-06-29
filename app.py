@@ -28,7 +28,7 @@ modelPath = os.path.join(MODEL_FOLDER, model_filename)
 hullPath = os.path.join(MODEL_FOLDER, npy_filename)
 
 # --- Correct URLs for model files ---
-proto_url = 'https://raw.githubusercontent.com/richzhang/colorization/gh-pages/models/colorization_deploy_v2.prototxt'
+proto_url = 'https://raw.githubusercontent.com/yzhuo1999/Colorization-OpenCV/master/colorization_deploy_v2.prototxt'
 model_url = 'http://eecs.berkeley.edu/~rich.zhang/projects/2016_colorization/files/demo_v2/colorization_release_v2.caffemodel'
 npy_url = 'https://raw.githubusercontent.com/richzhang/colorization/gh-pages/resources/pts_in_hull.npy'
 
